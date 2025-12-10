@@ -70,13 +70,30 @@ function Pitch({ events, homeTeam, awayTeam }) {
       return baseTeamColor;
     };
 
-    // Plot events with known x,y
+    // Plot events with known x,y. We render positions relative to team goal:
+    // - Home team attacks left-to-right in the first half and right-to-left in
+    //   the second half.
+    // - Away team is the opposite.
+    const HALF_SECONDS = 45 * 60;
+
     g.selectAll('circle.event')
       .data(events.filter((e) => e.x != null && e.y != null))
       .enter()
       .append('circle')
       .attr('class', 'pitch-event')
-      .attr('cx', (d) => xScale(d.x))
+      .attr('cx', (d) => {
+        const isHome = d.team === homeTeam;
+        const isSecondHalf = d.match_time >= HALF_SECONDS;
+        let logicalX = d.x;
+
+        if (isHome) {
+          logicalX = isSecondHalf ? 1 - d.x : d.x;
+        } else if (d.team === awayTeam) {
+          logicalX = isSecondHalf ? d.x : 1 - d.x;
+        }
+
+        return xScale(logicalX);
+      })
       .attr('cy', (d) => yScale(d.y))
       .attr('r', (d) => (d.event_type === 'SHOT' ? 8 : 5))
       .attr('fill', (d) => colorForEvent(d))
