@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
 
-function Pitch({ events, homeTeam, awayTeam }) {
+function Pitch({ events, homeTeam, awayTeam, onEventClick }) {
   const svgRef = useRef(null);
 
   useEffect(() => {
@@ -99,6 +99,12 @@ function Pitch({ events, homeTeam, awayTeam }) {
       .attr('fill', (d) => colorForEvent(d))
       .attr('stroke', '#ffffff')
       .attr('stroke-width', 1.5)
+      .style('cursor', 'pointer')
+      .on('click', (event, d) => {
+        if (onEventClick) {
+          onEventClick(d);
+        }
+      })
       .append('title')
       .text(
         (d) =>

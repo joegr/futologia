@@ -11,6 +11,7 @@ from flask_cors import CORS
 
 from soccer_events import Match, EventType
 from soccer_events.statsbomb_loader import match_from_statsbomb_events
+from soccer_events.probabilistic import StateEventTypePriors
 
 
 app = Flask(__name__)
@@ -190,6 +191,34 @@ def _event_to_dict(ev) -> Dict[str, Any]:
     return base
 
 
+def _zone_from_xy(ev) -> str:
+    """Coarse zone label from normalized x,y.
+
+    Uses thirds in x (def/mid/att) and y (left/center/right).
+    """
+
+    x = ev.x
+    y = ev.y
+    if x is None or y is None:
+        return "unknown"
+
+    if x < 1 / 3:
+        xband = "def"
+    elif x < 2 / 3:
+        xband = "mid"
+    else:
+        xband = "att"
+
+    if y < 1 / 3:
+        yband = "left"
+    elif y < 2 / 3:
+        yband = "center"
+    else:
+        yband = "right"
+
+    return f"{xband}_{yband}"
+
+
 def _parse_event_type(value: str) -> EventType:
     try:
         return EventType(value)
@@ -312,6 +341,59 @@ def list_events_for_possession(match_id: str, possession_id: int) -> Any:
             events = [_event_to_dict(ev) for ev in pos.iter_events()]
             return jsonify(events)
     abort(404, description=f"Possession id {possession_id} not found in match '{match_id}'")
+
+
+# --- Event-type priors -------------------------------------------------------
+
+
+@app.route("/matches/<match_id>/priors/team", methods=["GET"])
+def event_type_priors_by_team(match_id: str) -> Any:
+    """Return per-team event-type priors for a match.
+
+    State key: team name.
+    """
+
+    match = _get_match_or_404(match_id)
+    priors = StateEventTypePriors.from_events(
+        match.iter_events(), key_fn=lambda ev: ev.team, alpha=0.5
+    )
+    return jsonify(priors.to_dict())
+
+
+@app.route("/matches/<match_id>/priors/possession", methods=["GET"])
+def event_type_priors_by_possession(match_id: str) -> Any:
+    """Return per-possession event-type priors for a match.
+
+    State key: possession id (or "None" if missing).
+    """
+
+    match = _get_match_or_404(match_id)
+
+    def key_fn(ev):
+        return ev.possession.id if ev.possession is not None else None
+
+    priors = StateEventTypePriors.from_events(
+        match.iter_events(), key_fn=key_fn, alpha=0.5
+    )
+    return jsonify(priors.to_dict())
+
+
+@app.route("/matches/<match_id>/priors/team_zone", methods=["GET"])
+def event_type_priors_by_team_zone(match_id: str) -> Any:
+    """Return per-(team, zone) event-type priors.
+
+    State key: (team_name, coarse_zone_label).
+    """
+
+    match = _get_match_or_404(match_id)
+
+    def key_fn(ev):
+        return (ev.team, _zone_from_xy(ev))
+
+    priors = StateEventTypePriors.from_events(
+        match.iter_events(), key_fn=key_fn, alpha=0.5
+    )
+    return jsonify(priors.to_dict())
 
 
 # For simplicity, we implement a basic update/delete based on index in the

@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Timeline from './Timeline.jsx';
 import Pitch from './Pitch.jsx';
+import EventTypeEpochChart from './EventTypeEpochChart.jsx';
+import SelectedEventProbabilities from './SelectedEventProbabilities.jsx';
 
 const API_BASE = 'http://localhost:5000';
 
@@ -32,6 +34,7 @@ function MatchView2() {
   const [windowEnd, setWindowEnd] = useState(0);
   const [windowStartIdx, setWindowStartIdx] = useState(0);
   const [windowEndIdx, setWindowEndIdx] = useState(0);
+  const [selectedEvent, setSelectedEvent] = useState(null);
 
   // Load matches
   useEffect(() => {
@@ -203,13 +206,27 @@ function MatchView2() {
 
       <section className="visualization">
         {currentMatch ? (
-          <Timeline
-            events={windowEvents}
-            maxTime={maxTime}
-            homeTeam={currentMatch.home_team}
-            awayTeam={currentMatch.away_team}
-            currentTime={null}
-          />
+          <>
+            <Timeline
+              events={windowEvents}
+              maxTime={maxTime}
+              homeTeam={currentMatch.home_team}
+              awayTeam={currentMatch.away_team}
+              currentTime={null}
+            />
+            <h2>Event-type probabilities over time</h2>
+            <EventTypeEpochChart
+              events={events}
+              maxTime={maxTime}
+              windowStart={windowStart}
+              windowEnd={windowEnd}
+            />
+            <h2>Selected event next-event probabilities</h2>
+            <SelectedEventProbabilities
+              selectedEvent={selectedEvent}
+              events={events}
+            />
+          </>
         ) : (
           <p>Select a match to view events.</p>
         )}
@@ -268,6 +285,7 @@ function MatchView2() {
             events={windowEvents}
             homeTeam={currentMatch.home_team}
             awayTeam={currentMatch.away_team}
+            onEventClick={setSelectedEvent}
           />
         </section>
       )}
